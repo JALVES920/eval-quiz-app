@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # 1. Vérifier le front (Vite)
+  front:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+  # 2. Vérifier le backend
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      # décommente si tu as des tests / un linter :
+      # - run: npm test
+      # - run: npm run lint
+
+  # 3. Builder les images Docker + tester la stack complète
+  docker:
+    runs-on: ubuntu-latest
+    needs: [front, backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Créer un .env factice pour la CI
+        run: |
+          cat > .env <<EOF
+          POSTGRES_USER=ci
+          POSTGRES_PASSWORD=ci_password
+          POSTGRES_DB=quizdb
+          RESEND_API_KEY=re_ci_dummy
+          EOF
+
+      - name: Valider le compose
+        run: docker compose config -q
+
+      - name: Build des images
+        run: docker compose build
+
+      - name: Démarrer la stack
+        run: docker compose up -d --wait --wait-timeout 120
+
+      - name: Smoke test (front via nginx)
+        run: curl --fail --retry 5 --retry-delay 3 http://localhost:8080
+
+      - name: Logs en cas d'échec
+        if: failure()
+        run: docker compose logs
+
+      - name: Arrêt
+        if: always()
+        run: docker compose down -v
