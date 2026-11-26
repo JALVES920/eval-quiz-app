@@ -2,7 +2,7 @@ FROM nginx:stable-alpine3.24-perl
 
 WORKDIR /etc/nginx
 
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN mkdir -p /var/www/html
 

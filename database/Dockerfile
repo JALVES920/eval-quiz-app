@@ -1,6 +1,6 @@
 FROM postgres:trixie
 
-WORKDIR /var/lib/postgresql/data
+WORKDIR /var/lib/postgresql
 
 COPY init.sql /docker-entrypoint-initdb.d/
 
